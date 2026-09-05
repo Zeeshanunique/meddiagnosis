@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: meddiagnosis
+Version: 0.1.0
+Summary: Explainable AI framework for automated medical diagnosis using vision-language models
+Requires-Python: >=3.10
+Requires-Dist: torch>=2.1.0
+Requires-Dist: transformers>=4.50.0
+Requires-Dist: accelerate>=0.27.0
+Requires-Dist: datasets>=2.18.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scipy>=1.11.0
+Requires-Dist: matplotlib>=3.8.0
+Requires-Dist: opencv-python-headless>=4.9.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: rouge-score>=0.1.2
+Requires-Dist: nltk>=3.8.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: huggingface_hub>=0.26.0
+Requires-Dist: torchvision>=0.16.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: ruff>=0.3.0; extra == "dev"
+Provides-Extra: finetune
+Requires-Dist: peft>=0.10.0; extra == "finetune"
+Requires-Dist: trl>=0.9.0; extra == "finetune"
+Requires-Dist: bitsandbytes>=0.43.0; extra == "finetune"
+Provides-Extra: ui
+Requires-Dist: gradio>=5.0.0; extra == "ui"

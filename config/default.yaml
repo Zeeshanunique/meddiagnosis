@@ -1,0 +1,21 @@
+model:
+  local_id: BIOMEDICA/BMC-smolvlm1-256M
+  processor_id: HuggingFaceTB/SmolVLM-256M-Instruct
+  max_new_tokens: 128
+  system_prompt: >
+    You are an expert radiologist assistant. Provide findings, a concise diagnosis,
+    and a brief explanation grounded in visible image evidence. Research use only.
+
+prompts:
+  report_generation: >
+    Analyze this chest X-ray. Provide: (1) key findings, (2) likely diagnosis,
+    (3) brief explanation of visual evidence.
+
+xai:
+  output_dir: outputs/xai
+  alpha: 0.45
+
+paths:
+  outputs: outputs
+
+disclaimer: Research and educational use only. Not for clinical diagnosis.
