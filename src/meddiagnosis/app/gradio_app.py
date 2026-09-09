@@ -153,8 +153,15 @@ def build_app(config_path: str = "config/default.yaml") -> gr.Blocks:
                 gradcam_out = gr.Image(label="Grad-CAM", type="pil", height=220)
                 faithfulness = gr.Textbox(label="Faithfulness", interactive=False)
 
-        if Path("chest_xray.png").exists():
-            gr.Examples([["chest_xray.png"]], inputs=[image_in])
+        example_paths = [
+            str(p)
+            for p in sorted((Path("data/test_cxr/images").glob("*")))
+            if p.suffix.lower() in {".png", ".jpg", ".jpeg"}
+        ]
+        if not example_paths and Path("chest_xray.png").exists():
+            example_paths = ["chest_xray.png"]
+        if example_paths:
+            gr.Examples(example_paths[:8], inputs=[image_in], label="Test dataset samples")
 
         preset.change(lambda p: gr.update(visible=p == "Custom question"), preset, custom_prompt)
         analyze_btn.click(
