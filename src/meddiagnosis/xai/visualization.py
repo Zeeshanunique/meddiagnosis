@@ -22,8 +22,21 @@ def normalize_heatmap(heatmap: np.ndarray) -> np.ndarray:
     return heatmap
 
 
+def _to_2d_heatmap(heatmap: np.ndarray) -> np.ndarray:
+    hm = np.asarray(heatmap, dtype=np.float32)
+    while hm.ndim > 2:
+        hm = hm.mean(axis=0)
+    if hm.ndim == 1:
+        side = int(np.ceil(np.sqrt(hm.size)))
+        padded = np.zeros(side * side, dtype=np.float32)
+        padded[: hm.size] = hm.flatten()
+        hm = padded.reshape(side, side)
+    return hm
+
+
 def resize_heatmap(heatmap: np.ndarray, size: tuple[int, int]) -> np.ndarray:
-    return cv2.resize(heatmap, size, interpolation=cv2.INTER_CUBIC)
+    hm = _to_2d_heatmap(heatmap)
+    return cv2.resize(hm, size, interpolation=cv2.INTER_CUBIC)
 
 
 def overlay_heatmap(

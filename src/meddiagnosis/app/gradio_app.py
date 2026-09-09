@@ -138,7 +138,7 @@ def build_app(config_path: str = "config/default.yaml") -> gr.Blocks:
                 image_in = gr.Image(label="Chest X-ray", type="numpy", height=360)
                 preset = gr.Dropdown(list(PROMPT_PRESETS.keys()), value="Full report", label="Preset")
                 custom_prompt = gr.Textbox(label="Custom question", visible=False, lines=2)
-                run_xai = gr.Checkbox(label="Run Grad-CAM", value=True)
+                run_xai = gr.Checkbox(label="Run Grad-CAM (~2–3 min on Mac)", value=False)
                 max_tokens = gr.Slider(32, 256, value=int(config.get("model", "max_new_tokens", default=128)), step=16)
                 analyze_btn = gr.Button("Analyze", variant="primary")
             with gr.Column():
@@ -171,6 +171,12 @@ def build_app(config_path: str = "config/default.yaml") -> gr.Blocks:
             inputs=[findings_state],
             outputs=[chatbot, chat_input],
         )
+
+        def _preload():
+            _get_pipeline(config_path)
+            return f"Ready · {config.model_id}"
+
+        demo.load(_preload, outputs=status)
 
     return demo
 

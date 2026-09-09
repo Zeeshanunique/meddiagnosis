@@ -96,7 +96,13 @@ def _input_gradient_saliency(
         score = outputs.logits[:, input_len - 1 : input_len, :].max()
         score.backward()
 
-    attr = pixels.grad.abs().sum(dim=1)[0].float().cpu().numpy()
+    grad = pixels.grad
+    if grad is None:
+        raise RuntimeError("Pixel gradients were not computed.")
+    attr = grad.detach().abs()
+    while attr.ndim > 2:
+        attr = attr.mean(dim=0)
+    attr = attr.float().cpu().numpy()
     overlay = overlay_heatmap(image, attr, alpha=alpha)
     return AttributionResult(method="input_gradient", heatmap=attr, overlay=overlay)
 
@@ -104,8 +110,9 @@ def _input_gradient_saliency(
 class GradCAMExplainer:
     """Grad-CAM over the vision encoder for VLM faithfulness analysis."""
 
-    def __init__(self, model: LocalVLM) -> None:
+    def __init__(self, model: LocalVLM, prefer_fast: bool = False) -> None:
         self.model_wrapper = model
+        self.prefer_fast = prefer_fast
         self.activations: torch.Tensor | None = None
         self.gradients: torch.Tensor | None = None
         self._hooks: list[torch.utils.hooks.RemovableHandle] = []
@@ -135,6 +142,17 @@ class GradCAMExplainer:
         target_token_idx: int = -1,
         alpha: float = 0.45,
     ) -> AttributionResult:
+        device = getattr(self.model_wrapper, "device", None)
+        use_fast = self.prefer_fast or (
+            device is not None and device.type in {"mps", "cpu"}
+        )
+        if use_fast:
+            print("Using fast input-gradient saliency (recommended on Mac).", file=sys.stderr)
+            inputs, input_len = self.model_wrapper.prepare_inputs(image, prompt)
+            return _input_gradient_saliency(
+                self.model_wrapper, image, prompt, input_len, inputs, alpha
+            )
+
         vision = self.model_wrapper.get_vision_module()
         layer = _find_target_layer(vision)
         self._register_hooks(layer)

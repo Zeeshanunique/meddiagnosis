@@ -32,7 +32,10 @@ class DiagnosticPipeline:
             processor_id=config.get("model", "processor_id"),
             system_prompt=config.get("model", "system_prompt"),
         )
-        self.gradcam = GradCAMExplainer(self.model)
+        self.gradcam = GradCAMExplainer(
+            self.model,
+            prefer_fast=bool(config.get("xai", "fast", default=True)),
+        )
 
     def run(
         self,

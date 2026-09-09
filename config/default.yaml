@@ -14,6 +14,7 @@ prompts:
 xai:
   output_dir: outputs/xai
   alpha: 0.45
+  fast: true
 
 paths:
   outputs: outputs
