@@ -28,7 +28,15 @@ python -m meddiagnosis.cli infer --image chest_xray.png --max-tokens 80
 
 # Web UI + chat
 python -m meddiagnosis.cli serve --port 7860
+
+# Tuned test-set classification + confusion matrix
+meddiagnosis batch --mode classification --no-xai
+meddiagnosis evaluate
+# or one step:
+meddiagnosis benchmark --no-xai
 ```
+
+Confusion matrices: `outputs/confusion_matrix_radiology_cxr.png`, `outputs/confusion_matrix_radiology_vqa.png`
 
 ## Model training data
 
