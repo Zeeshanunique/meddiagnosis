@@ -27,6 +27,11 @@ from meddiagnosis.evaluation.prompts import (
 from meddiagnosis.evaluation.vqa_helpers import predict_vqa_from_image
 from meddiagnosis.models.cxr_classifier import predict_cxr_category
 from meddiagnosis.models.smolvlm import SmolVLMLocalModel
+from meddiagnosis.pipeline.report_prompts import (
+    FALLBACK_REPORT_PROMPT,
+    fallback_report_from_screen,
+    is_degenerate_findings,
+)
 from meddiagnosis.xai.gradcam import GradCAMExplainer
 from meddiagnosis.xai.visualization import save_attribution
 
@@ -80,7 +85,22 @@ class DiagnosticPipeline:
             max_new_tokens=tokens,
             system_prompt=system_prompt,
         )
-        output = DiagnosticOutput(findings=result.text, prompt=prompt)
+        findings = result.text.strip()
+        if is_degenerate_findings(findings):
+            retry = self.model.generate(
+                image=image,
+                prompt=FALLBACK_REPORT_PROMPT,
+                max_new_tokens=max(tokens, 96),
+                system_prompt=system_prompt,
+            )
+            if retry.text.strip() and not is_degenerate_findings(retry.text):
+                findings = retry.text.strip()
+                prompt = f"{prompt}\n[retry: fallback report prompt]"
+            else:
+                screen, _ = predict_cxr_category(image)
+                findings = fallback_report_from_screen("chest x-ray", screen)
+                prompt = f"{prompt}\n[retry: structured screen fallback]"
+        output = DiagnosticOutput(findings=findings, prompt=prompt)
         if not run_xai:
             return output
 

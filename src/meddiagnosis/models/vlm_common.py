@@ -98,5 +98,11 @@ def generate_from_messages(
     do_sample: bool = False,
 ) -> str:
     inputs, input_len = _encode(processor, messages, device, dtype)
-    generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=do_sample)
+    generated = model.generate(
+        **inputs,
+        max_new_tokens=max_new_tokens,
+        do_sample=do_sample,
+        repetition_penalty=1.15,
+        no_repeat_ngram_size=3,
+    )
     return processor.decode(generated[0][input_len:], skip_special_tokens=True).strip()

@@ -26,6 +26,7 @@ src/meddiagnosis/models/smolvlm.py
 src/meddiagnosis/models/vlm_common.py
 src/meddiagnosis/pipeline/__init__.py
 src/meddiagnosis/pipeline/inference.py
+src/meddiagnosis/pipeline/report_prompts.py
 src/meddiagnosis/xai/__init__.py
 src/meddiagnosis/xai/gradcam.py
 src/meddiagnosis/xai/visualization.py

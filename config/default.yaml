@@ -12,14 +12,13 @@ prompts:
     You are a chest X-ray classification assistant. Answer briefly and precisely.
     Research use only.
   report_generation: >
-    Analyze this chest X-ray. Provide: (1) key findings, (2) likely diagnosis,
-    (3) brief explanation of visual evidence.
+    Write a short chest X-ray report in plain English (4-6 sentences): lung findings,
+    heart/mediastinum, and clinical impression. Do not use numbered labels (1)(2)(3).
   cxr_binary_prompt: >
     Is pneumonia or focal airspace consolidation present on this chest X-ray?
     Answer with exactly one word: yes or no.
   vqa_prompt: >
-    Look at this chest X-ray and answer using only visible evidence.
-    Reply with exactly one word: yes or no.
+    Look at this chest X-ray. Answer the question in one clear sentence.
     Question: {question}
 
 xai:

@@ -29,6 +29,9 @@ python -m meddiagnosis.cli infer --image chest_xray.png --max-tokens 80
 # Web UI + chat
 python -m meddiagnosis.cli serve --port 7860
 
+# Full text report for every image in data/test_cxr/images/
+meddiagnosis reports --max-tokens 96
+
 # Tuned test-set classification + confusion matrix
 meddiagnosis batch --mode classification --no-xai
 meddiagnosis evaluate

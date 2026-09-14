@@ -14,8 +14,8 @@ from meddiagnosis.pipeline.inference import DiagnosticPipeline
 
 PROMPT_PRESETS = {
     "Full report": (
-        "Analyze this chest X-ray. Provide: (1) key findings, (2) likely diagnosis, "
-        "(3) brief explanation of visual evidence."
+        "Write a short chest X-ray report in plain English (4-6 sentences): lung findings, "
+        "heart/mediastinum, and clinical impression. Do not use numbered labels (1)(2)(3)."
     ),
     "Findings only": "List the key radiological findings visible in this chest X-ray.",
     "Diagnosis only": "What is the most likely diagnosis based on this chest X-ray?",

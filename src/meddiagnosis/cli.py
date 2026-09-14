@@ -14,6 +14,7 @@ from meddiagnosis.evaluation.confusion_matrix import (
     save_confusion_matrix_json,
 )
 from meddiagnosis.evaluation.metrics import evaluate_results, save_evaluation
+from meddiagnosis.evaluation.vqa_helpers import predict_vqa_from_image
 from meddiagnosis.pipeline.inference import DiagnosticPipeline
 
 
@@ -52,6 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--manifest", default="data/test_cxr/manifest.json")
     evaluate.add_argument("--results-dir", default="outputs")
     evaluate.add_argument("--output", default=None)
+
+    reports = sub.add_parser("reports", help="Print full-text report for every test image")
+    reports.add_argument("--manifest", default="data/test_cxr/manifest.json")
+    reports.add_argument("--max-tokens", type=int, default=128)
+    reports.add_argument("--save", action="store_true", help="Write outputs/<id>_report.json")
 
     benchmark = sub.add_parser("benchmark", help="Run classification batch + evaluate")
     benchmark.add_argument("--manifest", default="data/test_cxr/manifest.json")
@@ -149,6 +155,40 @@ def main() -> None:
             print(f"JSON: {cm_json}")
         else:
             print("No results found. Run: meddiagnosis batch --mode classification")
+
+    elif args.command == "reports":
+        dataset = TestDataset.from_manifest(args.manifest)
+        pipeline = DiagnosticPipeline(config)
+        default_report = config.get("prompts", "report_generation")
+        vqa_template = config.get("prompts", "vqa_prompt") or "Answer in one sentence: {question}"
+        print(f"Radiology reports for {len(dataset)} image(s)\n")
+        for sample in dataset.samples:
+            image = dataset.load_image(sample)
+            if sample.category == "vqa_rad" and sample.vqa_questions:
+                prompt = vqa_template.format(question=sample.vqa_questions[0])
+            else:
+                prompt = default_report
+            output = pipeline.run(
+                image=image,
+                prompt=prompt,
+                sample_id=sample.id,
+                run_xai=False,
+                max_new_tokens=args.max_tokens,
+            )
+            print(f"{'=' * 60}")
+            print(f"Image: {sample.path.name}")
+            print(f"Category: {sample.category}  |  Hint: {sample.reference_hint}")
+            print(f"{'-' * 60}")
+            print(output.findings)
+            if sample.category == "vqa_rad" and sample.vqa_questions:
+                rule = predict_vqa_from_image(sample.vqa_questions[0], image)
+                print(f"\nDataset reference: {sample.reference_hint}")
+                if rule:
+                    print(f"Rule-based VQA hint: {rule}")
+            print()
+            if args.save:
+                out = Path(config.output_dir) / f"{sample.id}_report.json"
+                pipeline.save_result(output, out)
 
     elif args.command == "benchmark":
         dataset = TestDataset.from_manifest(args.manifest)
