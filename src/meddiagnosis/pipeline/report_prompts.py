@@ -47,16 +47,3 @@ def is_degenerate_findings(text: str) -> bool:
         if len(cleaned) < 80:
             return True
     return False
-
-
-def fallback_report_from_screen(category_hint: str, screen_label: str) -> str:
-    label = screen_label.lower()
-    if label == "pneumonia":
-        impression = "Findings are suggestive of airspace disease, consistent with pneumonia."
-    else:
-        impression = "No definite focal consolidation; lungs appear within normal limits for this screen."
-    return (
-        f"Chest X-ray screen ({category_hint}): {screen_label}. "
-        f"{impression} "
-        "This is an automated research summary; confirm with a qualified clinician."
-    )

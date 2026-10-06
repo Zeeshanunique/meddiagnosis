@@ -23,7 +23,7 @@ pip install -e ".[ui]"
 # Fast (no XAI)
 python -m meddiagnosis.cli infer --image chest_xray.png --no-xai --max-tokens 80
 
-# With Grad-CAM (~2–3 min on Mac)
+# With Grad-CAM (~45–60s on Mac; attribution runs on CPU/float32 for MPS stability)
 python -m meddiagnosis.cli infer --image chest_xray.png --max-tokens 80
 
 # Web UI + chat

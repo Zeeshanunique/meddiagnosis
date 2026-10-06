@@ -25,6 +25,16 @@ xai:
   output_dir: outputs/xai
   alpha: 0.45
   fast: true
+  # Downscale before attribution. SmolVLM tiles images (512px tiles, 2048px cap),
+  # so a full-size X-ray becomes ~17 crops and the backward pass crashes the Metal
+  # compiler on MPS. 512 keeps it to ~2 crops; the heatmap is upsampled anyway.
+  max_image_size: 512
+  # MPS float16 backward is unstable; run attribution on CPU in float32.
+  attribution_device: cpu
+  # Vision-encoder block to hook (negative = from the end, 12 blocks total).
+  # The last block gives diffuse, answer-agnostic maps; -4 was measured to give
+  # focal maps that actually differ between the "yes" and "no" answers.
+  layer_index: -4
 
 paths:
   outputs: outputs

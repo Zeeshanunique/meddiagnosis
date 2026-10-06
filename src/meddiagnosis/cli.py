@@ -8,14 +8,56 @@ from PIL import Image
 
 from meddiagnosis.config import Config
 from meddiagnosis.data.test_dataset import TestDataset
+from meddiagnosis.evaluation.comparison import (
+    build_comparison_table,
+    plot_comparison_accuracy,
+    plot_comparison_metrics,
+    save_comparison_json,
+)
 from meddiagnosis.evaluation.confusion_matrix import (
     compute_confusion_matrices,
     plot_confusion_matrix,
     save_confusion_matrix_json,
 )
 from meddiagnosis.evaluation.metrics import evaluate_results, save_evaluation
-from meddiagnosis.evaluation.vqa_helpers import predict_vqa_from_image
 from meddiagnosis.pipeline.inference import DiagnosticPipeline
+
+
+def _run_evaluation(manifest: str, results_dir: str, output_dir: Path) -> None:
+    summary = evaluate_results(manifest, results_dir)
+    save_evaluation(summary, output_dir / "evaluation.json")
+    print(f"Samples: {summary.num_samples}")
+    print(f"Classification accuracy: {summary.mean_classification_accuracy:.3f}")
+
+    cm_results = compute_confusion_matrices(manifest, results_dir)
+    if not cm_results:
+        print("No results found. Run: meddiagnosis batch --mode classification")
+        return
+
+    cm_json = output_dir / "confusion_matrix.json"
+    save_confusion_matrix_json(cm_results, cm_json)
+    for cm in cm_results:
+        png = output_dir / f"confusion_matrix_{cm.task}.png"
+        plot_confusion_matrix(cm, png)
+        print(f"\n{cm.task}: accuracy={cm.accuracy:.2%}")
+        for label in cm.labels:
+            print(
+                f"  {label}: precision={cm.per_class_precision[label]:.2%} "
+                f"recall={cm.per_class_recall[label]:.2%} f1={cm.per_class_f1[label]:.2%}"
+            )
+        print(f"  macro: precision={cm.macro_precision:.2%} recall={cm.macro_recall:.2%} f1={cm.macro_f1:.2%}")
+        print(f"  PNG: {png}")
+    print(f"JSON: {cm_json}")
+
+    table = build_comparison_table(cm_results)
+    if table:
+        comparison_json = output_dir / "comparison.json"
+        save_comparison_json(table, comparison_json)
+        plot_comparison_accuracy(table, output_dir / "comparison_accuracy.png")
+        plot_comparison_metrics(table, output_dir / "comparison_metrics.png")
+        print(f"\nComparison vs. published studies saved: {comparison_json}")
+        print(f"  PNG: {output_dir / 'comparison_accuracy.png'}")
+        print(f"  PNG: {output_dir / 'comparison_metrics.png'}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -134,27 +176,8 @@ def main() -> None:
             print(f"  saved: {out_path}\n")
 
     elif args.command == "evaluate":
-        summary = evaluate_results(args.manifest, args.results_dir)
-        out = Path(args.output or config.output_dir) / "evaluation.json"
-        save_evaluation(summary, out)
-        print(f"Samples: {summary.num_samples}")
-        print(f"Classification accuracy: {summary.mean_classification_accuracy:.3f}")
-        print(f"Saved: {out}")
-
-        cm_results = compute_confusion_matrices(args.manifest, args.results_dir)
-        if cm_results:
-            cm_json = Path(config.output_dir) / "confusion_matrix.json"
-            save_confusion_matrix_json(cm_results, cm_json)
-            for cm in cm_results:
-                png = Path(config.output_dir) / f"confusion_matrix_{cm.task}.png"
-                plot_confusion_matrix(cm, png)
-                print(f"\n{cm.task}: accuracy={cm.accuracy:.2%}")
-                for label, recall in cm.per_class_recall.items():
-                    print(f"  recall[{label}]: {recall:.2%}")
-                print(f"  PNG: {png}")
-            print(f"JSON: {cm_json}")
-        else:
-            print("No results found. Run: meddiagnosis batch --mode classification")
+        output_dir = Path(args.output or config.output_dir)
+        _run_evaluation(args.manifest, args.results_dir, output_dir)
 
     elif args.command == "reports":
         dataset = TestDataset.from_manifest(args.manifest)
@@ -181,10 +204,7 @@ def main() -> None:
             print(f"{'-' * 60}")
             print(output.findings)
             if sample.category == "vqa_rad" and sample.vqa_questions:
-                rule = predict_vqa_from_image(sample.vqa_questions[0], image)
                 print(f"\nDataset reference: {sample.reference_hint}")
-                if rule:
-                    print(f"Rule-based VQA hint: {rule}")
             print()
             if args.save:
                 out = Path(config.output_dir) / f"{sample.id}_report.json"
@@ -199,17 +219,7 @@ def main() -> None:
             image = dataset.load_image(sample)
             output = pipeline.run_classification(sample=sample, image=image, run_xai=not args.no_xai)
             pipeline.save_result(output, Path(config.output_dir) / f"{sample.id}_result.json")
-        args.manifest = args.manifest
-        args.results_dir = str(config.output_dir)
-        args.output = None
-        # Re-use evaluate branch logic inline
-        summary = evaluate_results(args.manifest, args.results_dir)
-        save_evaluation(summary, Path(config.output_dir) / "evaluation.json")
-        cm_results = compute_confusion_matrices(args.manifest, args.results_dir)
-        save_confusion_matrix_json(cm_results, Path(config.output_dir) / "confusion_matrix.json")
-        for cm in cm_results:
-            plot_confusion_matrix(cm, Path(config.output_dir) / f"confusion_matrix_{cm.task}.png")
-        print(f"Accuracy: {summary.mean_classification_accuracy:.2%}")
+        _run_evaluation(args.manifest, str(config.output_dir), Path(config.output_dir))
 
     elif args.command == "serve":
         from meddiagnosis.app.gradio_app import launch

@@ -5,15 +5,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# PA convention: the patient's right side appears on the VIEWER'S LEFT.
+# Ordered most-specific first -- region_from_heatmap returns the first match
+# and these boxes deliberately overlap (e.g. mediastinum sits inside pleura).
 ANATOMY_REGIONS = {
-    "right upper lung": (0.55, 0.05, 0.95, 0.35),
-    "left upper lung": (0.05, 0.05, 0.45, 0.35),
-    "right lower lung": (0.55, 0.45, 0.95, 0.90),
-    "left lower lung": (0.05, 0.45, 0.45, 0.90),
-    "right lung": (0.50, 0.05, 0.95, 0.90),
-    "left lung": (0.05, 0.05, 0.50, 0.90),
+    "right upper lung": (0.05, 0.05, 0.45, 0.35),
+    "left upper lung": (0.55, 0.05, 0.95, 0.35),
+    "right lower lung": (0.05, 0.45, 0.45, 0.90),
+    "left lower lung": (0.55, 0.45, 0.95, 0.90),
     "heart": (0.35, 0.35, 0.65, 0.70),
     "mediastinum": (0.35, 0.20, 0.65, 0.55),
+    "right lung": (0.05, 0.05, 0.50, 0.90),
+    "left lung": (0.50, 0.05, 0.95, 0.90),
     "pleura": (0.05, 0.05, 0.95, 0.90),
 }
 

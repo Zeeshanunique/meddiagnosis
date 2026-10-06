@@ -32,6 +32,11 @@ class ConfusionMatrixResult:
     matrix: list[list[int]]
     accuracy: float
     per_class_recall: dict[str, float]
+    per_class_precision: dict[str, float]
+    per_class_f1: dict[str, float]
+    macro_precision: float
+    macro_recall: float
+    macro_f1: float
     rows: list[ClassificationRow]
 
 
@@ -89,6 +94,20 @@ def compute_confusion_matrices(
             label: (matrix[i][i] / sum(matrix[i]) if sum(matrix[i]) else 0.0)
             for i, label in enumerate(labels)
         }
+        col_sums = [sum(matrix[r][j] for r in range(len(labels))) for j in range(len(labels))]
+        precision = {
+            label: (matrix[i][i] / col_sums[i] if col_sums[i] else 0.0)
+            for i, label in enumerate(labels)
+        }
+        f1 = {
+            label: (
+                2 * precision[label] * recall[label] / (precision[label] + recall[label])
+                if (precision[label] + recall[label])
+                else 0.0
+            )
+            for label in labels
+        }
+        n = len(labels) or 1
         results.append(
             ConfusionMatrixResult(
                 task=task,
@@ -96,6 +115,11 @@ def compute_confusion_matrices(
                 matrix=matrix,
                 accuracy=(correct / total) if total else 0.0,
                 per_class_recall=recall,
+                per_class_precision=precision,
+                per_class_f1=f1,
+                macro_precision=sum(precision.values()) / n,
+                macro_recall=sum(recall.values()) / n,
+                macro_f1=sum(f1.values()) / n,
                 rows=rows,
             )
         )

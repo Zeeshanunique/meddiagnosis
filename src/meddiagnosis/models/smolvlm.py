@@ -44,20 +44,26 @@ class SmolVLMLocalModel:
             model_id, "HuggingFaceTB/SmolVLM-256M-Instruct"
         )
         self.system_prompt = system_prompt or "Expert radiologist assistant. Research use only."
-        self._device, self.dtype = _resolve_device()
+        self._device, self._load_dtype = _resolve_device()
 
         print(f"Loading SmolVLM: {model_id} on {self._device}", file=sys.stderr)
         t0 = time.perf_counter()
         self.processor = AutoProcessor.from_pretrained(proc)
         self.model = AutoModelForImageTextToText.from_pretrained(
-            model_id, dtype=self.dtype, low_cpu_mem_usage=True
+            model_id, dtype=self._load_dtype, low_cpu_mem_usage=True
         ).to(self._device)
         self.model.eval()
         print(f"Model ready in {time.perf_counter() - t0:.1f}s", file=sys.stderr)
 
     @property
     def device(self) -> torch.device:
-        return self._device
+        # Read live rather than returning the load-time value: XAI temporarily
+        # relocates the model to CPU, and inputs must follow it.
+        return next(self.model.parameters()).device
+
+    @property
+    def dtype(self) -> torch.dtype:
+        return next(self.model.parameters()).dtype
 
     def prepare_inputs(self, image: Image.Image, prompt: str) -> tuple[dict[str, Any], int]:
         return prepare_inputs(

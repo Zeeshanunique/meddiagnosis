@@ -24,12 +24,9 @@ from meddiagnosis.evaluation.prompts import (
     radiology_cxr_confirm_normal_prompt,
     radiology_cxr_opacity_prompt,
 )
-from meddiagnosis.evaluation.vqa_helpers import predict_vqa_from_image
-from meddiagnosis.models.cxr_classifier import predict_cxr_category
 from meddiagnosis.models.smolvlm import SmolVLMLocalModel
 from meddiagnosis.pipeline.report_prompts import (
     FALLBACK_REPORT_PROMPT,
-    fallback_report_from_screen,
     is_degenerate_findings,
 )
 from meddiagnosis.xai.gradcam import GradCAMExplainer
@@ -46,7 +43,6 @@ class DiagnosticOutput:
     category: str | None = None
     true_label: str | None = None
     predicted_label: str | None = None
-    classifier_scores: dict | None = None
 
 
 class DiagnosticPipeline:
@@ -61,6 +57,9 @@ class DiagnosticPipeline:
         self.gradcam = GradCAMExplainer(
             self.model,
             prefer_fast=bool(config.get("xai", "fast", default=True)),
+            max_image_size=config.get("xai", "max_image_size", default=512),
+            attribution_device=config.get("xai", "attribution_device", default="cpu"),
+            layer_index=int(config.get("xai", "layer_index", default=-4)),
         )
 
     @property
@@ -97,9 +96,11 @@ class DiagnosticPipeline:
                 findings = retry.text.strip()
                 prompt = f"{prompt}\n[retry: fallback report prompt]"
             else:
-                screen, _ = predict_cxr_category(image)
-                findings = fallback_report_from_screen("chest x-ray", screen)
-                prompt = f"{prompt}\n[retry: structured screen fallback]"
+                findings = (
+                    "Model did not produce a usable report for this image "
+                    "(output was empty, repetitive, or malformed)."
+                )
+                prompt = f"{prompt}\n[retry failed]"
         output = DiagnosticOutput(findings=findings, prompt=prompt)
         if not run_xai:
             return output
@@ -109,7 +110,10 @@ class DiagnosticPipeline:
 
         print("Running Grad-CAM...", file=sys.stderr)
         t0 = time.perf_counter()
-        gradcam = self.gradcam.explain(image, prompt, alpha=alpha)
+        # Attribute the answer the model actually gave, so the heatmap explains
+        # this prediction rather than the model's generic peak confidence.
+        answer = _parse_vqa_label(findings)
+        gradcam = self.gradcam.explain(image, prompt, alpha=alpha, answer=answer)
         print(f"Grad-CAM done in {time.perf_counter() - t0:.1f}s", file=sys.stderr)
         gradcam_path = xai_dir / f"{sample_id}_gradcam.png"
         save_attribution(str(gradcam_path), gradcam.overlay)
@@ -146,8 +150,6 @@ class DiagnosticPipeline:
         output.predicted_label = parse_label_from_text(output.findings, task)
 
         if task == "radiology_vqa":
-            question = sample.vqa_questions[0] if sample.vqa_questions else ""
-            rule_label = predict_vqa_from_image(question, image)
             votes: list[str] = []
             for _ in range(3):
                 ans = self.model.generate(
@@ -159,19 +161,12 @@ class DiagnosticPipeline:
                 label = _parse_vqa_label(ans)
                 if label:
                     votes.append(label)
-            if rule_label:
-                output.predicted_label = rule_label
-            elif votes:
+            if votes:
                 yes_votes = sum(1 for v in votes if v == "yes")
                 output.predicted_label = "yes" if yes_votes >= 2 else "no"
-            output.findings = (
-                f"[vqa_rule: {rule_label or 'none'}] "
-                f"[vqa_votes: {','.join(votes) or 'none'}] {output.findings}"
-            )
+            output.findings = f"[vqa_votes: {','.join(votes) or 'none'}] {output.findings}"
 
         if task == "radiology_cxr":
-            cxr_label, cxr_scores = predict_cxr_category(image)
-            output.classifier_scores = cxr_scores
             pneumonia_answer = output.findings
             confirm = self.model.generate(
                 image=image,
@@ -185,14 +180,12 @@ class DiagnosticPipeline:
                 max_new_tokens=16,
                 system_prompt=sys_prompt,
             ).text
-            vlm_label = reconcile_cxr_labels(pneumonia_answer, confirm, opacity)
-            output.predicted_label = cxr_label
+            output.predicted_label = reconcile_cxr_labels(pneumonia_answer, confirm, opacity)
             output.findings = (
-                f"[cxr_classifier: {cxr_label} score={cxr_scores.get('pneumonia_score', 0):.3f}]\n"
                 f"[pneumonia_q: {pneumonia_answer.strip()}]\n"
                 f"[normal_q: {confirm.strip()}]\n"
                 f"[opacity_q: {opacity.strip()}]\n"
-                f"[vlm_vote: {vlm_label}]"
+                f"[vlm_vote: {output.predicted_label}]"
             )
 
         return output
